@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/bookmarks"
+    }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
+}

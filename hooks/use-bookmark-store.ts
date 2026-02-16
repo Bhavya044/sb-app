@@ -7,56 +7,107 @@ import type { Bookmark, BookmarkCreate } from "@/lib/bookmark.types";
 type UseBookmarkStoreResult = {
   bookmarks: Bookmark[];
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   realtimeConnected: boolean;
   lastSyncedAt: string | null;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
   insertBookmark: (bookmark: BookmarkCreate) => Promise<void>;
   deleteBookmark: (bookmarkId: string) => Promise<void>;
 };
 
-export function useBookmarkStore(userId?: string | null): UseBookmarkStoreResult {
+export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookmarkStoreResult {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
-  const fetchBookmarks = useCallback(async () => {
-    if (!userId) {
-      setBookmarks([]);
+  const fetchBookmarks = useCallback(
+    async ({ page: targetPage = 0, append = false }: { page?: number; append?: boolean } = {}) => {
+      if (!userId) {
+        setBookmarks([]);
+        setLoading(false);
+        setLoadingMore(false);
+        setError(null);
+        setLastSyncedAt(null);
+        setPage(0);
+        setHasMore(false);
+        return;
+      }
+
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const start = targetPage * pageSize;
+      const end = start + pageSize - 1;
+      const { data, error: fetchError } = await supabase
+        .from("bookmarks")
+        .select("id, title, url, created_at")
+        .match({ user_id: userId })
+        .order("created_at", { ascending: false })
+        .range(start, end);
+
+      if (fetchError) {
+        setError(fetchError.message);
+        if (!append) {
+          setBookmarks([]);
+        }
+      } else {
+        const payload = (data ?? []) as Bookmark[];
+        if (append) {
+          setBookmarks((current) => {
+            const existingIds = new Set(current.map((item) => item.id));
+            const newEntries = payload.filter((item) => !existingIds.has(item.id));
+            return [...current, ...newEntries];
+          });
+        } else {
+          setBookmarks(payload);
+        }
+        setError(null);
+      }
+
+      setHasMore((data ?? []).length === pageSize);
+      setPage(targetPage);
+      setLastSyncedAt(new Date().toISOString());
       setLoading(false);
-      setError(null);
-      setLastSyncedAt(null);
-      return;
-    }
-
-    setLoading(true);
-    const { data, error: fetchError } = await supabase
-      .from("bookmarks")
-      .select("id, title, url, created_at")
-      .match({ user_id: userId })
-      .order("created_at", { ascending: false });
-
-    if (fetchError) {
-      setError(fetchError.message);
-      setBookmarks([]);
-    } else {
-      setBookmarks((data ?? []) as Bookmark[]);
-      setError(null);
-    }
-
-    setLastSyncedAt(new Date().toISOString());
-    setLoading(false);
-  }, [userId]);
+      setLoadingMore(false);
+    },
+    [pageSize, userId]
+  );
 
   useEffect(() => {
-    fetchBookmarks();
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) {
+        fetchBookmarks();
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [fetchBookmarks]);
 
+  const refresh = useCallback(async () => {
+    await fetchBookmarks({ page: 0, append: false });
+  }, [fetchBookmarks]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return;
+    await fetchBookmarks({ page: page + 1, append: true });
+  }, [fetchBookmarks, hasMore, loading, loadingMore, page]);
+
   useEffect(() => {
     if (!userId) {
-      setRealtimeConnected(false);
+      queueMicrotask(() => setRealtimeConnected(false));
       return;
     }
 
@@ -70,36 +121,20 @@ export function useBookmarkStore(userId?: string | null): UseBookmarkStoreResult
           table: "bookmarks",
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          setBookmarks((current) => {
-            if (payload.eventType === "INSERT" && payload.new) {
-              setLastSyncedAt(new Date().toISOString());
-              return [payload.new as Bookmark, ...current.filter((item) => item.id !== payload.new.id)];
-            }
-
-            if (payload.eventType === "UPDATE" && payload.new) {
-              setLastSyncedAt(new Date().toISOString());
-              return current.map((bookmark) => (bookmark.id === payload.new.id ? (payload.new as Bookmark) : bookmark));
-            }
-
-            if (payload.eventType === "DELETE" && payload.old) {
-              setLastSyncedAt(new Date().toISOString());
-              return current.filter((bookmark) => bookmark.id !== payload.old.id);
-            }
-
-            return current;
-          });
+        async () => {
+          setLastSyncedAt(new Date().toISOString());
+          await refresh();
         }
       )
       .subscribe();
 
-    setRealtimeConnected(true);
+    queueMicrotask(() => setRealtimeConnected(true));
 
     return () => {
       supabase.removeChannel(channel);
-      setRealtimeConnected(false);
+      queueMicrotask(() => setRealtimeConnected(false));
     };
-  }, [userId]);
+  }, [userId, refresh]);
 
   const insertBookmark = useCallback(
     async (bookmark: BookmarkCreate) => {
@@ -128,17 +163,16 @@ export function useBookmarkStore(userId?: string | null): UseBookmarkStoreResult
     [userId]
   );
 
-  const refresh = useCallback(async () => {
-    await fetchBookmarks();
-  }, [fetchBookmarks]);
-
   return {
     bookmarks,
     loading,
+    loadingMore,
+    hasMore,
     error,
     realtimeConnected,
     lastSyncedAt,
     refresh,
+    loadMore,
     insertBookmark,
     deleteBookmark,
   };

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint --cache --ext .ts,.tsx,.js,.jsx ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
@@ -16,15 +16,16 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^20.7.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.14",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.1.6",
-    "postcss": "^8.4.37",
-    "tailwindcss": "^4.1.4",
+    "postcss": "^8.5.6",
+    "supabase": "^2.76.8",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.5.0"
   }
 }

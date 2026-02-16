@@ -8,7 +8,7 @@ type BookmarkFormProps = {
   isValid: boolean;
   isSubmitting: boolean;
   disabled: boolean;
-  showUrlHint: boolean;
+  urlHelperText?: string | null;
 };
 
 export default function BookmarkForm({
@@ -19,7 +19,7 @@ export default function BookmarkForm({
   isValid,
   isSubmitting,
   disabled,
-  showUrlHint,
+  urlHelperText,
 }: BookmarkFormProps) {
   return (
     <div className="rounded-2xl border border-white/5 bg-slate-950/60 p-4">
@@ -47,9 +47,9 @@ export default function BookmarkForm({
             onChange={(event) => onChange("url", event.target.value)}
             className="mt-1 w-full rounded-2xl border border-white/5 bg-transparent px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
           />
-          {showUrlHint ? (
-            <p className="mt-1 text-[10px] uppercase tracking-[0.4em] text-emerald-300">
-              Include http:// or https:// so we can render the preview safely.
+          {urlHelperText ? (
+            <p className="mt-1 max-w-sm text-[10px] uppercase tracking-[0.4em] text-rose-300">
+              {urlHelperText}
             </p>
           ) : null}
         </div>

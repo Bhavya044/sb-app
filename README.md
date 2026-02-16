@@ -38,6 +38,8 @@ Minimal private bookmark vault built with Next.js (App Router), Supabase Auth/Da
    );
    ```
 
+   If you prefer reproducible setup, the same statements live in `supabase/schema/bookmarks.sql`; run them through the Supabase CLI (`supabase db push`) or paste them into the SQL editor.
+
 4. Enable RLS and add a single policy that scoped users to their own rows:
 
    ```sql

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { clsx } from "clsx";
 import type { Bookmark } from "@/lib/bookmark.types";
 import { formatTimestamp, relativeTime } from "@/lib/time";
@@ -12,6 +13,7 @@ type BookmarkListProps = {
   deletingId: string | null;
   copyingId: string | null;
   clipboardSupported: boolean;
+  onVisibleEnd?: () => void;
 };
 
 const skeletons = Array.from({ length: 3 });
@@ -32,66 +34,115 @@ export default function BookmarkList({
   deletingId,
   copyingId,
   clipboardSupported,
+  onVisibleEnd,
 }: BookmarkListProps) {
+  const lastItemRef = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    if (!onVisibleEnd || bookmarks.length === 0) {
+      return;
+    }
+
+    const element = lastItemRef.current;
+    if (!element) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onVisibleEnd();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [bookmarks.length, onVisibleEnd]);
   if (loading) {
     return (
       <div className="space-y-3">
         {skeletons.map((_, index) => (
-          <div key={index} className="h-20 animate-pulse rounded-2xl bg-slate-900/60" />
+          <div
+            key={index}
+            className="h-24 animate-pulse rounded-[32px] bg-gradient-to-r from-slate-900/60 to-slate-900/20"
+          />
         ))}
       </div>
     );
   }
 
   if (bookmarks.length === 0) {
-    return <p className="text-sm text-slate-400">No bookmarks yet – add one to get started.</p>;
+    return (
+      <p className="text-sm text-slate-500">
+        No bookmarks yet — start adding your favorite links to see them appear here.
+      </p>
+    );
   }
 
   return (
-    <ul className="space-y-3">
-      {bookmarks.map((bookmark) => (
-        <li key={bookmark.id} className="flex items-start justify-between gap-4 rounded-2xl border border-white/5 bg-slate-950/60 p-4 shadow-inner shadow-slate-950/50">
-          <div className="space-y-1">
-            <p className="text-base font-semibold text-white sm:text-lg">{bookmark.title}</p>
-            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.35em] text-emerald-300">
-              <span className="rounded-full border border-emerald-500/40 px-2 py-0.5 text-[10px]">{getDomainLabel(bookmark.url)}</span>
-              <span className="text-slate-500">{formatTimestamp(bookmark.created_at)}</span>
+    <div className="space-y-4">
+      {bookmarks.map((bookmark, index) => (
+        <article
+          key={bookmark.id}
+          ref={index === bookmarks.length - 1 ? lastItemRef : undefined}
+          className="border border-white/10 bg-white/5 p-4 shadow-[0_20px_45px_rgba(7,7,11,0.45)] backdrop-blur-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-white sm:text-xl">{bookmark.title}</p>
+              <p className="text-sm text-slate-400">{getDomainLabel(bookmark.url)}</p>
             </div>
-            <a href={bookmark.url} target="_blank" rel="noreferrer" className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-300">
-              {bookmark.url}
+            <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+              <span>{relativeTime(bookmark.created_at)}</span>
+              <span>{formatTimestamp(bookmark.created_at)}</span>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <a
+              href={bookmark.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 min-w-0 text-emerald-300 underline-offset-4 hover:underline sm:text-sm"
+            >
+              <span className="block break-words text-xs sm:text-sm">{bookmark.url}</span>
             </a>
-            <p className="text-[10px] uppercase tracking-[0.4em] text-slate-500">{relativeTime(bookmark.created_at)}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={copyingId === bookmark.id || !clipboardSupported}
+                onClick={() => clipboardSupported && onCopy(bookmark.url, bookmark.id)}
+                className={clsx(
+                  "rounded-full border px-4 py-1 text-xs font-semibold transition",
+                  copyingId === bookmark.id
+                    ? "border-emerald-300 text-emerald-200"
+                    : clipboardSupported
+                    ? "border-emerald-300 text-white hover:border-emerald-200"
+                    : "border-slate-700 text-slate-500"
+                )}
+              >
+                {copyingId === bookmark.id ? "Copying" : "Copy link"}
+              </button>
+              <button
+                type="button"
+                disabled={deletingId === bookmark.id}
+                onClick={() => onDelete(bookmark.id)}
+                className={clsx(
+                  "rounded-full border px-4 py-1 text-xs font-semibold transition",
+                  deletingId === bookmark.id
+                    ? "border-rose-500/60 text-rose-200"
+                    : "border-rose-400 text-rose-200 hover:border-rose-300"
+                )}
+              >
+                {deletingId === bookmark.id ? "Deleting" : "Delete"}
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <button
-              type="button"
-              disabled={copyingId === bookmark.id || !clipboardSupported}
-              onClick={() => clipboardSupported && onCopy(bookmark.url, bookmark.id)}
-              className={clsx(
-                "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] transition",
-                copyingId === bookmark.id
-                  ? "border-emerald-400 text-emerald-200"
-                  : clipboardSupported
-                  ? "border-emerald-400 text-emerald-200 hover:border-emerald-300"
-                  : "border-slate-700 text-slate-500"
-              )}
-            >
-              {copyingId === bookmark.id ? "Copying" : "Copy link"}
-            </button>
-            <button
-              type="button"
-              disabled={deletingId === bookmark.id}
-              onClick={() => onDelete(bookmark.id)}
-              className={clsx(
-                "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] transition",
-                deletingId === bookmark.id ? "border-rose-500/60 text-rose-200" : "border-rose-400 text-rose-400 hover:border-rose-300"
-              )}
-            >
-              {deletingId === bookmark.id ? "Deleting" : "Delete"}
-            </button>
-          </div>
-        </li>
+        </article>
       ))}
-    </ul>
+    </div>
   );
 }

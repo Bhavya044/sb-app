@@ -1,13 +1,15 @@
 'use client'
 
+import GoogleButton from '@/components/GoogleButton'
 import { useSession } from '@/hooks/use-session'
 import { supabase } from '@/lib/supabase-client'
 import { useRouter } from 'next/router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function LoginPage() {
   const session = useSession()
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (session) {
@@ -16,10 +18,16 @@ export default function LoginPage() {
   }, [session, router])
 
   const signIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: typeof window === 'undefined' ? undefined : window.location.origin },
-    })
+    setLoading(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: typeof window === 'undefined' ? undefined : window.location.origin },
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -29,13 +37,9 @@ export default function LoginPage() {
         <p className="text-center text-sm text-slate-400">
           Sign in with Google to access your private bookmarks.
         </p>
-        <button
-          type="button"
-          className="w-full rounded-2xl border border-emerald-400/70 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300"
-          onClick={signIn}
-        >
-          Continue with Google
-        </button>
+        <GoogleButton onClick={signIn} isLoading={loading}>
+          <span className="tracking-[0.4em]">Continue with Google</span>
+        </GoogleButton>
       </div>
     </section>
   )

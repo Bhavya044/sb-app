@@ -1,9 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "@/lib/supabase-client";
 import type { BookmarkCreate } from "@/lib/bookmark.types";
 import BookmarkForm from "@/components/BookmarkForm";
 import BookmarkList from "@/components/BookmarkList";
@@ -33,20 +32,23 @@ export default function BookmarksPage() {
   const router = useRouter();
   const session = useSession();
   const userId = session?.user?.id;
-  const userEmail = session?.user?.email;
   const {
     bookmarks,
     loading,
+    loadingMore,
+    hasMore,
     error: storeError,
     realtimeConnected,
     lastSyncedAt,
+    refresh,
+    loadMore,
     insertBookmark,
     deleteBookmark,
   } = useBookmarkStore(userId);
 
   const [formState, setFormState] = useState({ title: "", url: "" });
   const [formError, setFormError] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [copyingId, setCopyingId] = useState<string | null>(null);
@@ -71,13 +73,22 @@ export default function BookmarksPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const handleVisibleEnd = useCallback(() => {
+    if (hasMore && !loading && !loadingMore) {
+      loadMore();
+    }
+  }, [hasMore, loading, loadingMore, loadMore]);
+
   const isFormValid =
     Boolean(formState.title.trim() && formState.url.trim()) && isValidBookmarkUrl(formState.url);
   const lastSyncedLabel = lastSyncedAt
     ? `${relativeTime(lastSyncedAt)} • ${formatTimestamp(lastSyncedAt)}`
     : "Waiting for first sync";
   const networkStatusLabel = realtimeConnected ? "Realtime ready" : "Realtime warming up";
-  const showUrlHint = Boolean(formState.url && !isValidBookmarkUrl(formState.url));
+  const urlValidationMessage =
+    formState.url && !isValidBookmarkUrl(formState.url)
+      ? `URL "${formState.url}" needs http:// or https:// so we can render the preview safely.`
+      : null;
   const errorMessage = formError ?? storeError;
   const latestBookmark = bookmarks[0];
 
@@ -98,7 +109,7 @@ export default function BookmarksPage() {
     }
 
     if (!isValidBookmarkUrl(formState.url)) {
-      setFormError("Include http:// or https:// in the URL.");
+      setFormError(urlValidationMessage ?? "Include http:// or https:// in the URL.");
       return;
     }
 
@@ -112,6 +123,8 @@ export default function BookmarksPage() {
     try {
       await insertBookmark(payload);
       setFormState({ title: "", url: "" });
+      await refresh();
+      setShowForm(false);
       setToast({ variant: "success", message: "Saved." });
     } catch (insertError) {
       setFormError((insertError as Error).message);
@@ -125,6 +138,7 @@ export default function BookmarksPage() {
     setMutatingId(bookmarkId);
     try {
       await deleteBookmark(bookmarkId);
+      await refresh();
       setToast({ variant: "success", message: "Deleted." });
     } catch (deleteError) {
       setFormError((deleteError as Error).message);
@@ -147,10 +161,6 @@ export default function BookmarksPage() {
     }
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
-
   if (!session) {
     return null;
   }
@@ -166,57 +176,76 @@ export default function BookmarksPage() {
           <div className="flex flex-wrap gap-3 text-[11px] uppercase tracking-[0.4em] text-slate-400">
             <span>{networkStatusLabel}</span>
             <span>Last sync: {lastSyncedLabel}</span>
-            {userEmail ? <span className="text-xs text-emerald-300">{userEmail}</span> : null}
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-3 text-xs">
-          <span className="rounded-full border border-white/10 px-3 py-1 text-slate-200">{bookmarks.length} saved link{bookmarks.length === 1 ? "" : "s"}</span>
+          <span className="rounded-full border border-white/10 px-3 py-1 text-slate-200">
+            {bookmarks.length} saved link{bookmarks.length === 1 ? "" : "s"}
+          </span>
           {latestBookmark ? (
             <span className="rounded-full border border-slate-700 px-3 py-1 text-slate-200">Latest: {latestBookmark.title}</span>
           ) : null}
         </div>
       </header>
 
-      <section className="space-y-4 glass-card rounded-3xl px-6 py-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">Add a bookmark</h2>
-          <button
-            type="button"
-            className="rounded-full border border-slate-700 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-slate-500"
-            onClick={signOut}
-          >
-            Sign out
-          </button>
-        </div>
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          className={`rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] transition ${
+            showForm
+              ? "border border-emerald-400 bg-emerald-500/10 text-emerald-600 shadow-inner"
+              : "border border-amber-400 bg-amber-500/10 text-amber-700 shadow-sm shadow-amber-200"
+          }`}
+          onClick={() => setShowForm((prev) => !prev)}
+        >
+          {showForm ? "Close form" : "Create bookmark"}
+        </button>
+      </div>
 
-        {errorMessage ? (
-          <p role="alert" className="text-xs text-rose-400">
-            {errorMessage}
-          </p>
-        ) : null}
+      {showForm ? (
+        <section className="space-y-4 glass-card rounded-3xl px-6 py-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">Add a bookmark</h2>
+          </div>
 
-        <BookmarkForm
-          title={formState.title}
-          url={formState.url}
-          onChange={updateField}
-          onSubmit={handleAdd}
-          isValid={isFormValid}
-          isSubmitting={mutatingId === "adding"}
-          disabled={!userId}
-          showUrlHint={showUrlHint}
-        />
-      </section>
+          {errorMessage ? (
+            <p role="alert" className="text-xs text-rose-400">
+              {errorMessage}
+            </p>
+          ) : null}
+
+          <BookmarkForm
+            title={formState.title}
+            url={formState.url}
+            onChange={updateField}
+            onSubmit={handleAdd}
+            isValid={isFormValid}
+            isSubmitting={mutatingId === "adding"}
+            disabled={!userId}
+            urlHelperText={showForm ? urlValidationMessage : null}
+          />
+        </section>
+      ) : null}
 
       <section className="glass-card rounded-3xl p-6">
-        <BookmarkList
-          bookmarks={bookmarks}
-          loading={loading}
-          onDelete={handleDelete}
-          onCopy={handleCopy}
-          deletingId={mutatingId}
-          copyingId={copyingId}
-          clipboardSupported={clipboardSupported}
-        />
+          <BookmarkList
+            bookmarks={bookmarks}
+            loading={loading}
+            onDelete={handleDelete}
+            onCopy={handleCopy}
+            deletingId={mutatingId}
+            copyingId={copyingId}
+            clipboardSupported={clipboardSupported}
+            onVisibleEnd={handleVisibleEnd}
+          />
+        {loadingMore ? (
+          <p className="mt-3 text-xs uppercase tracking-[0.3em] text-slate-500">Loading more bookmarks…</p>
+        ) : null}
+        {!hasMore && !loading ? (
+          <p className="mt-3 text-xs uppercase tracking-[0.3em] text-slate-500">
+            That’s the end of your list — nothing more to fetch.
+          </p>
+        ) : null}
       </section>
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
