@@ -1,69 +1,26 @@
 # Smart Bookmark Manager
 
-Minimal private bookmark vault built with Next.js (App Router), Supabase Auth/Database/Realtime, and Tailwind CSS. Bookmarks stay tied to the authenticated Google user, and every open tab reflects inserts/deletes instantly thanks to Supabase Realtime streams.
+A focused bookmark vault built with Next.js, Supabase (Auth + Database + Realtime), and expressive Tailwind UI. Sign in with Google and everything you save is scoped to your Supabase user and reflected instantly across tabs thanks to realtime streams and a responsive infinite scroll list.
 
 ## Highlights
+- **Google-only auth** keeps onboarding trivial: the login page routes to `/bookmarks` as soon as Supabase reports a session, and the CTA has explicit loading states so you always know something is happening.
+- **Realtime, per-user sync**: triggers broadcast on a `user:{user_id}:bookmarks` topic, and the client subscribes to insert/update/delete events so two tabs never fall out of sync.
+- **Bookmarks list with infinite scroll**: the store loads three records at a time, tracks whether more pages exist, and the list watches a sentinel element so the next batch only loads when you actually scroll.
+- **Polished navigation**: the header shows the “Welcome, …” text beside the logo, the nav actions live below the heading, and mobile screens get a drawer (without a persistent menu icon on desktop). Sign-out lives in the nav with a red button + spinner.
+- **Shared styling**: `styles/globals.css` keeps the gradient background, glass-card utility, cursor behavior, and accent palette consistent; `vercel.json` rewrites the root to `/bookmarks` for smooth deploys.
 
-- **Google-only auth**: Supabase OAuth keeps authentication simple—no passwords, multi-factor, or custom auth flows.
-- **Private data**: Supabase RLS + `user_id` filters ensure only the owning Google user can insert, read, update, or delete their own bookmarks.
-- **Realtime, production-ready UI**: A lightweight header, toast notifications, clipboard copy buttons, validation, and onboarding copy ensure reviewers see crisp functionality without distractions.
-- **Shared stack**: Next.js 16 App Router, Tailwind CSS classes, `clsx`, and Supabase client helpers keep everything fully typed and future-proof.
+## Setup steps
+1. Clone the repo, run `npm install`, and create `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` that match your Supabase project.
+2. Run `npm run dev` and visit `http://localhost:3000`; the GTM-like `GoogleButton`, form validation hints, and toast feedback should all appear without refresh.
+3. Use the Supabase dashboard (or CLI) to push the migrations in `supabase/migrations/20260217000000_realtime_bookmarks.sql`, which enable RLS, add the realtime trigger, and broadcast on the user topic.
 
-## Local setup
+## Troubleshooting & what was solved
+- **Realtime updates disappeared**: the bookmarks table wasn’t broadcasting. Running the new migration adds the trigger/trigger function that calls `realtime.broadcast_changes` per user topic, so the client’s `supabase.channel("user:<id>:bookmarks")` subscription receives the UPDATE/INSERT/DELETE events.
+- **Infinite scroll never kicked in**: before the store tracked `hasMore` and the layout watched a sentinel (a hidden `<div>` at the end of the list), we fetched every page as soon as the component mounted. Now the list only loads the next page when the sentinel intersects the viewport, and `hasMore` flips to `false` whenever a page returns fewer than three rows.
+- **CSP warnings in DevTools referencing `content.js`**: Chrome/Edge extensions may inject scripts and trigger `CSP` violations on `http://localhost:3000`. The app itself doesn’t run those scripts; ignore the warning or whitelist the extension for localhost, and make sure your production CSP matches the assets you actually host.
+- **Sign-out/loading states**: the nav now shows a red “Sign out” button with spinner, and the “Continue with Google” CTA globally reuses `components/GoogleButton` so the spinner and disabled state never get duplicated.
 
-1. `cd projects/smart-bookmark-mgr`
-2. `npm install`
-3. Create `.env.local` with the same keys as the production environment:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://<your project>.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
-   ```
-4. Run `npm run dev` and visit `http://localhost:3000`. The stats header, toast feedback, and clipboard buttons appear once Supabase returns the authenticated session.
+## Supabase references
+- Table SQL: `supabase/schema/bookmarks.sql` defines the columns and the initial RLS policy.
+- Real-time SQL: run `supabase/migrations/20260217000000_realtime_bookmarks.sql` (or paste it into the SQL editor) to enable broadcasts, add explicit `SELECT/INSERT/UPDATE/DELETE` policies, and keep the `user:{user_id}:bookmarks` topic live for every authenticated session.
 
-> **Note**: The sandbox that built this repo could not reach `registry.npmjs.org`. Please run `npm install` locally with outbound network access before running the dev server.
-
-## Supabase setup
-
-1. Create a Supabase project and enable the **Google** OAuth provider (`http://localhost:3000` + deployed URL in redirect URIs).
-2. Add the `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` environment variables to both `.env.local` and the Vercel dashboard.
-3. Create the `bookmarks` table:
-
-   ```sql
-   create table public.bookmarks (
-     id uuid default gen_random_uuid() primary key,
-     user_id uuid not null references auth.users on delete cascade,
-     title text not null,
-     url text not null,
-     created_at timestamptz not null default now()
-   );
-   ```
-
-   If you prefer reproducible setup, the same statements live in `supabase/schema/bookmarks.sql`; run them through the Supabase CLI (`supabase db push`) or paste them into the SQL editor.
-
-4. Enable RLS and add a single policy that scoped users to their own rows:
-
-   ```sql
-   create policy "Users can manage own bookmarks"
-     on public.bookmarks
-     for all
-     using (auth.uid() = user_id)
-     with check (auth.uid() = user_id);
-   ```
-
-5. Turn on realtime for the `bookmarks` table (`INSERT`, `UPDATE`, `DELETE` events) so the client channel receives updates as soon as another tab mutates the table.
-
-## Routing & usage
-
-- `/` shows the Google-only sign-in screen, and users are redirected to `/bookmarks` as soon as Supabase reports an authenticated session.
-- `/bookmarks` renders the bookmark form/list that lets a logged-in user add a title+URL, delete their own entries, and watch realtime updates without a refresh.
-- `/insights` (optional) surfaces domain counts and timeline entries so reviewers can see additional activity if they go looking.
-
-## Visual polish
-
-- Lean layouts: `/` acts as a focused login card, `/bookmarks` wraps everything in a glassy shell with tight spacing, and the header displays only the realtime status + counters you care about.
-- Tailwind 4 powers the gradients, glass-card utility, and accent borders straight from `styles/globals.css`, so no redundant text or marketing sections remain—just the core functionality framed in a cohesive palette.
-
-## Testing
-
-- `npm run build` (confirms Tailwind + TypeScript, Next still warns about inferring the workspace root because multiple lockfiles exist—ignore or set `turbopack.root` if desired)
-*** End Patch

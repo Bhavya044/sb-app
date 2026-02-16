@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import type { Bookmark, BookmarkCreate } from "@/lib/bookmark.types";
 
@@ -17,6 +17,8 @@ type UseBookmarkStoreResult = {
   insertBookmark: (bookmark: BookmarkCreate) => Promise<void>;
   deleteBookmark: (bookmarkId: string) => Promise<void>;
 };
+
+const realtimeEvents = ["INSERT", "UPDATE", "DELETE"] as const;
 
 export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookmarkStoreResult {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -73,9 +75,9 @@ export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookm
           setBookmarks(payload);
         }
         setError(null);
+        setHasMore(payload.length === pageSize);
       }
 
-      setHasMore((data ?? []).length === pageSize);
       setPage(targetPage);
       setLastSyncedAt(new Date().toISOString());
       setLoading(false);
@@ -111,30 +113,33 @@ export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookm
       return;
     }
 
-    const channel = supabase
-      .channel(`bookmarks-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bookmarks",
-          filter: `user_id=eq.${userId}`,
-        },
-        async () => {
-          setLastSyncedAt(new Date().toISOString());
-          await refresh();
-        }
-      )
-      .subscribe();
+    const topic = `user:${userId}:bookmarks`;
+    const channel = supabase.channel(topic, { config: { broadcast: { self: true } } });
 
-    queueMicrotask(() => setRealtimeConnected(true));
+    realtimeEvents.forEach((event) => {
+      channel.on("broadcast", { event }, async () => {
+        setLastSyncedAt(new Date().toISOString());
+        try {
+          await refresh();
+        } catch (broadcastError) {
+          setError((broadcastError as Error).message);
+        }
+      });
+    });
+
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        queueMicrotask(() => setRealtimeConnected(true));
+      } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMEOUT") {
+        queueMicrotask(() => setRealtimeConnected(false));
+      }
+    });
 
     return () => {
       supabase.removeChannel(channel);
       queueMicrotask(() => setRealtimeConnected(false));
     };
-  }, [userId, refresh]);
+  }, [refresh, userId]);
 
   const insertBookmark = useCallback(
     async (bookmark: BookmarkCreate) => {
@@ -156,24 +161,44 @@ export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookm
         throw new Error("User must be signed in to delete bookmarks.");
       }
 
-      const { error: deleteError } = await supabase.from("bookmarks").delete().match({ id: bookmarkId, user_id: userId });
+      const { error: deleteError } = await supabase
+        .from("bookmarks")
+        .delete()
+        .match({ id: bookmarkId, user_id: userId });
       if (deleteError) throw deleteError;
       setLastSyncedAt(new Date().toISOString());
     },
     [userId]
   );
 
-  return {
-    bookmarks,
-    loading,
-    loadingMore,
-    hasMore,
-    error,
-    realtimeConnected,
-    lastSyncedAt,
-    refresh,
-    loadMore,
-    insertBookmark,
-    deleteBookmark,
-  };
+  const store = useMemo(
+    () => ({
+      bookmarks,
+      loading,
+      loadingMore,
+      hasMore,
+      error,
+      realtimeConnected,
+      lastSyncedAt,
+      refresh,
+      loadMore,
+      insertBookmark,
+      deleteBookmark,
+    }),
+    [
+      bookmarks,
+      loading,
+      loadingMore,
+      hasMore,
+      error,
+      realtimeConnected,
+      lastSyncedAt,
+      refresh,
+      loadMore,
+      insertBookmark,
+      deleteBookmark,
+    ]
+  );
+
+  return store;
 }

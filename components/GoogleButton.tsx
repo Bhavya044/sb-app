@@ -1,3 +1,5 @@
+"use client";
+
 type GoogleButtonProps = {
   onClick: () => void;
   className?: string;
@@ -11,7 +13,7 @@ export default function GoogleButton({ onClick, className, children, isLoading =
       type="button"
       onClick={onClick}
       disabled={isLoading}
-      className={`flex w-full items-center justify-center gap-3 rounded-2xl border border-transparent bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_25px_50px_rgba(2,6,23,0.65)] transition duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:from-slate-800 hover:to-slate-900 ${isLoading ? "opacity-70" : ""} ${className ?? ""}`}
+      className={`flex w-full items-center justify-center gap-3 rounded-2xl border border-transparent bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_25px_50px_rgba(2,6,23,0.65)] transition duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:from-slate-800 hover:to-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 cursor-pointer ${isLoading ? "opacity-70" : ""} ${className ?? ""}`}
     >
       <span className="flex items-center justify-center rounded-full bg-white p-1">
         <svg viewBox="0 0 20 20" className="h-4 w-4">
@@ -27,7 +29,7 @@ export default function GoogleButton({ onClick, className, children, isLoading =
           <span className="tracking-[0.4em]">Loading</span>
         </span>
       ) : (
-        <span className="tracking-[0.4em]">{children ?? "Continue with Google"}</span>
+        <span className="tracking-[0.4em]">{children ?? "CONTINUE WITH GOOGLE"}</span>
       )}
     </button>
   );
