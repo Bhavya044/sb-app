@@ -7,20 +7,24 @@ alter table if exists public.bookmarks enable row level security;
 create index if not exists idx_bookmarks_user_id on public.bookmarks(user_id);
 
 -- Policies to lock the table to the authenticated owner
-create policy if not exists "bookmarks_select_own" on public.bookmarks
+drop policy if exists "bookmarks_select_own" on public.bookmarks;
+drop policy if exists "bookmarks_insert_own" on public.bookmarks;
+drop policy if exists "bookmarks_update_own" on public.bookmarks;
+drop policy if exists "bookmarks_delete_own" on public.bookmarks;
+create policy "bookmarks_select_own" on public.bookmarks
   for select to authenticated
   using (auth.uid() = user_id);
 
-create policy if not exists "bookmarks_insert_own" on public.bookmarks
+create policy "bookmarks_insert_own" on public.bookmarks
   for insert to authenticated
   with check (auth.uid() = user_id);
 
-create policy if not exists "bookmarks_update_own" on public.bookmarks
+create policy "bookmarks_update_own" on public.bookmarks
   for update to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy if not exists "bookmarks_delete_own" on public.bookmarks
+create policy "bookmarks_delete_own" on public.bookmarks
   for delete to authenticated
   using (auth.uid() = user_id);
 
