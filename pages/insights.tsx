@@ -40,7 +40,10 @@ export default function InsightsPage() {
       const redirectTo = "https://sb-app-six.vercel.app/bookmarks";
       await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo },
+        options: {
+          redirectTo,
+          queryParams: { prompt: "select_account", access_type: "offline" },
+        },
       });
     } finally {
       setLoadingState(false);
