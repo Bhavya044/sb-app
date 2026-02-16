@@ -43,20 +43,26 @@ export default function HomePage() {
       return;
     }
 
+    const currentUserId = userId;
+
     setLoading(true);
-    supabase
-      .from("bookmarks")
-      .select("id, title, url, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .then(({ data, error: fetchError }) => {
-        if (fetchError) {
-          setError(fetchError.message);
-        } else {
-          setBookmarks(data ?? []);
-        }
-      })
-      .finally(() => setLoading(false));
+
+    const fetchBookmarks = async () => {
+      const { data, error: fetchError } = await supabase
+        .from("bookmarks")
+        .select("id, title, url, created_at")
+        .match({ user_id: currentUserId })
+        .order("created_at", { ascending: false });
+
+      if (fetchError) {
+        setError(fetchError.message);
+      } else {
+        const serverBookmarks = (data ?? []) as unknown as Bookmark[];
+        setBookmarks(serverBookmarks);
+      }
+    };
+
+    fetchBookmarks().finally(() => setLoading(false));
   }, [userId]);
 
   useEffect(() => {
@@ -112,9 +118,13 @@ export default function HomePage() {
     setError(null);
     try {
       setMutatingId("adding");
-      await supabase
-        .from("bookmarks")
-        .insert({ user_id: userId, title: formState.title.trim(), url: formState.url.trim() });
+      const newBookmark: Database["public"]["Tables"]["bookmarks"]["Insert"] = {
+        user_id: userId,
+        title: formState.title.trim(),
+        url: formState.url.trim(),
+      };
+
+      await supabase.from("bookmarks").insert(newBookmark as any);
       setFormState({ title: "", url: "" });
     } catch (insertError) {
       setError((insertError as Error).message);
@@ -125,7 +135,7 @@ export default function HomePage() {
 
   const handleDelete = async (bookmarkId: string) => {
     setMutatingId(bookmarkId);
-    await supabase.from("bookmarks").delete().eq("id", bookmarkId);
+    await supabase.from("bookmarks").delete().match({ id: bookmarkId });
     setMutatingId(null);
   };
 

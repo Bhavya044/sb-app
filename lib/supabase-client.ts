@@ -9,7 +9,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient<import("./database.types").Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistence: "local",
+    persistSession: true,
     detectSessionInUrl: true,
   },
 });
