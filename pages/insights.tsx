@@ -37,9 +37,10 @@ export default function InsightsPage() {
     setLoadingState(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 250));
+      const redirectTo = "https://sb-app-six.vercel.app/bookmarks";
       await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: typeof window === "undefined" ? undefined : window.location.origin },
+        options: { redirectTo },
       });
     } finally {
       setLoadingState(false);
