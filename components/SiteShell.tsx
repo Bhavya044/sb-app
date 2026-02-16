@@ -1,8 +1,6 @@
 'use client'
 
-import { useBookmarkStore } from '@/hooks/use-bookmark-store'
 import { useSession } from '@/hooks/use-session'
-import { formatTimestamp, relativeTime } from '@/lib/time'
 import { supabase } from '@/lib/supabase-client'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -21,15 +19,10 @@ export default function SiteShell({ children }: SiteShellProps) {
   const router = useRouter()
   const session = useSession()
   const userId = session?.user?.id
-  const { realtimeConnected, lastSyncedAt } = useBookmarkStore(userId)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [signOutLoading, setSignOutLoading] = useState(false)
 
   const userDisplayName = session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Guest'
-  const lastSyncedLabel = lastSyncedAt
-    ? `${relativeTime(lastSyncedAt)} • ${formatTimestamp(lastSyncedAt)}`
-    : 'Waiting for first sync'
-  const networkStatusLabel = realtimeConnected ? 'Realtime ready' : 'Realtime warming up'
 
   const handleSignOut = async () => {
     setSignOutLoading(true)
@@ -57,11 +50,9 @@ export default function SiteShell({ children }: SiteShellProps) {
                 <h1 className="text-2xl font-semibold text-white">Bookmark Vault</h1>
               </div>
             </div>
-              <div className="text-right text-sm uppercase tracking-[0.35em] text-slate-300 sm:text-left">
-                <p className="text-white">Welcome, {userDisplayName}</p>
-                <p className="text-[11px] text-slate-400">{networkStatusLabel}</p>
-                <p className="text-[11px] text-slate-400">{lastSyncedLabel}</p>
-              </div>
+            <div className="text-right text-sm uppercase tracking-[0.35em] text-slate-300 sm:text-left">
+              <p className="text-white">Welcome, {userDisplayName}</p>
+            </div>
           </div>
 
           <div className="mt-6 flex flex-col gap-3 border-t border-white/5 pt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
