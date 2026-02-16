@@ -114,34 +114,50 @@ export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookm
       return;
     }
 
-    const topic = `user:${userId}:bookmarks`;
-    const channel = supabase.channel(topic, { config: { broadcast: { self: true } } });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
 
-    realtimeEvents.forEach((event) => {
-      channel.on("broadcast", { event }, async () => {
-        setLastSyncedAt(new Date().toISOString());
-        try {
-          await refresh();
-        } catch (broadcastError) {
-          setError((broadcastError as Error).message);
+    const initRealtime = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled || !data.session) {
+        queueMicrotask(() => setRealtimeConnected(false));
+        return;
+      }
+
+      const topic = `user:${userId}:bookmarks`;
+      channel = supabase.channel(topic, { config: { broadcast: { self: true } } });
+
+      realtimeEvents.forEach((event) => {
+        channel?.on("broadcast", { event }, async () => {
+          setLastSyncedAt(new Date().toISOString());
+          try {
+            await refresh();
+          } catch (broadcastError) {
+            setError((broadcastError as Error).message);
+          }
+        });
+      });
+
+      channel.subscribe((status) => {
+        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
+          queueMicrotask(() => setRealtimeConnected(true));
+        } else if (
+          status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
+          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
+          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
+        ) {
+          queueMicrotask(() => setRealtimeConnected(false));
         }
       });
-    });
+    };
 
-    channel.subscribe((status) => {
-      if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
-        queueMicrotask(() => setRealtimeConnected(true));
-      } else if (
-        status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
-        status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
-        status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
-      ) {
-        queueMicrotask(() => setRealtimeConnected(false));
-      }
-    });
+    initRealtime();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
       queueMicrotask(() => setRealtimeConnected(false));
     };
   }, [refresh, userId]);
