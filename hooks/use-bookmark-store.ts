@@ -1,5 +1,6 @@
 "use client";
 
+import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import type { Bookmark, BookmarkCreate } from "@/lib/bookmark.types";
@@ -128,9 +129,13 @@ export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookm
     });
 
     channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
+      if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
         queueMicrotask(() => setRealtimeConnected(true));
-      } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMEOUT") {
+      } else if (
+        status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
+        status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
+        status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
+      ) {
         queueMicrotask(() => setRealtimeConnected(false));
       }
     });
