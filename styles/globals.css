@@ -2,7 +2,10 @@
 
 :root {
   color-scheme: dark;
-  background-color: #010409;
+  background-color: #030712;
+  --surface: color-mix(in oklab, #0b1220 75%, #030712);
+  --surface-soft: color-mix(in oklab, #111a2b 90%, #030712);
+  --accent: color-mix(in oklab, #34d399 60%, #0f766e);
 }
 
 @layer base {
@@ -12,18 +15,29 @@
 
   body {
     font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #e5e7eb;
+    color: #f4f4f5;
     min-height: 100vh;
-    background-color: #010409;
-    background-image: radial-gradient(circle at 20% -10%, rgba(16, 185, 129, 0.35), transparent 40%),
-      radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.4), transparent 35%),
-      linear-gradient(180deg, #020617 0%, #040812 70%);
+    background-color: #030712;
+    background-image: radial-gradient(circle at 15% -5%, rgba(74, 222, 128, 0.35), transparent 35%),
+      radial-gradient(circle at 75% -10%, rgba(59, 130, 246, 0.35), transparent 40%),
+      linear-gradient(180deg, #020617 0%, #020617 65%, #040f1a 100%);
     background-attachment: fixed;
-    font-weight: 400;
   }
 
   ::selection {
-    background-color: rgba(16, 185, 129, 0.25);
-    color: #ecfccb;
+    background-color: rgba(34, 197, 94, 0.35);
+    color: #e0f2fe;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    background: color-mix(in oklab, var(--surface, #0b1220) 60%, rgba(15, 23, 42, 0.65));
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 20px 50px -35px rgba(15, 23, 42, 0.8);
+  }
+
+  .accent-border {
+    border-color: color-mix(in oklab, var(--accent) 70%, rgba(255, 255, 255, 0.1));
   }
 }

@@ -56,6 +56,11 @@ Minimal private bookmark vault built with Next.js (App Router), Supabase Auth/Da
 - `/bookmarks` renders the bookmark form/list that lets a logged-in user add a title+URL, delete their own entries, and watch realtime updates without a refresh.
 - `/insights` (optional) surfaces domain counts and timeline entries so reviewers can see additional activity if they go looking.
 
+## Visual polish
+
+- Lean layouts: `/` acts as a focused login card, `/bookmarks` wraps everything in a glassy shell with tight spacing, and the header displays only the realtime status + counters you care about.
+- Tailwind 4 powers the gradients, glass-card utility, and accent borders straight from `styles/globals.css`, so no redundant text or marketing sections remain—just the core functionality framed in a cohesive palette.
+
 ## Testing
 
 - `npm run build` (confirms Tailwind + TypeScript, Next still warns about inferring the workspace root because multiple lockfiles exist—ignore or set `turbopack.root` if desired)

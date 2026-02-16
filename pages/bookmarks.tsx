@@ -79,6 +79,7 @@ export default function BookmarksPage() {
   const networkStatusLabel = realtimeConnected ? "Realtime ready" : "Realtime warming up";
   const showUrlHint = Boolean(formState.url && !isValidBookmarkUrl(formState.url));
   const errorMessage = formError ?? storeError;
+  const latestBookmark = bookmarks[0];
 
   const updateField = (field: "title" | "url", value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
@@ -156,23 +157,32 @@ export default function BookmarksPage() {
 
   return (
     <section className="space-y-6">
-      <header className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/60">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-white">Bookmarks</h1>
-          <div className="text-right text-[10px] uppercase tracking-[0.4em] text-slate-500">
-            <p>{networkStatusLabel}</p>
-            <p>Last sync: {lastSyncedLabel}</p>
-            {userEmail ? <p className="text-xs text-slate-400">{userEmail}</p> : null}
+      <header className="glass-card rounded-3xl px-6 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">My bookmarks</h1>
+            <p className="text-sm text-slate-400">Private links, synced instantly.</p>
           </div>
+          <div className="flex flex-wrap gap-3 text-[11px] uppercase tracking-[0.4em] text-slate-400">
+            <span>{networkStatusLabel}</span>
+            <span>Last sync: {lastSyncedLabel}</span>
+            {userEmail ? <span className="text-xs text-emerald-300">{userEmail}</span> : null}
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3 text-xs">
+          <span className="rounded-full border border-white/10 px-3 py-1 text-slate-200">{bookmarks.length} saved link{bookmarks.length === 1 ? "" : "s"}</span>
+          {latestBookmark ? (
+            <span className="rounded-full border border-slate-700 px-3 py-1 text-slate-200">Latest: {latestBookmark.title}</span>
+          ) : null}
         </div>
       </header>
 
-      <section className="space-y-4 rounded-3xl border border-white/5 bg-slate-950/70 p-6 shadow-xl shadow-slate-950/50">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-white">Your private list</h2>
+      <section className="space-y-4 glass-card rounded-3xl px-6 py-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">Add a bookmark</h2>
           <button
             type="button"
-            className="rounded-full border border-slate-700 px-4 py-1 text-sm font-medium text-slate-200 transition hover:border-slate-500"
+            className="rounded-full border border-slate-700 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-slate-500"
             onClick={signOut}
           >
             Sign out
@@ -195,7 +205,9 @@ export default function BookmarksPage() {
           disabled={!userId}
           showUrlHint={showUrlHint}
         />
+      </section>
 
+      <section className="glass-card rounded-3xl p-6">
         <BookmarkList
           bookmarks={bookmarks}
           loading={loading}
