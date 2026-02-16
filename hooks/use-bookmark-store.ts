@@ -19,8 +19,6 @@ type UseBookmarkStoreResult = {
   deleteBookmark: (bookmarkId: string) => Promise<void>;
 };
 
-const realtimeEvents = ["INSERT", "UPDATE", "DELETE"] as const;
-
 export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookmarkStoreResult {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,24 +117,32 @@ export function useBookmarkStore(userId?: string | null, pageSize = 3): UseBookm
 
     const initRealtime = async () => {
       const { data } = await supabase.auth.getSession();
-      if (cancelled || !data.session) {
+      if (cancelled) return;
+      if (!data.session) {
         queueMicrotask(() => setRealtimeConnected(false));
         return;
       }
 
-      const topic = `user:${userId}:bookmarks`;
-      channel = supabase.channel(topic, { config: { broadcast: { self: true } } });
+      const topic = `realtime:user:${userId}:bookmarks`;
+      channel = supabase.channel(topic);
 
-      realtimeEvents.forEach((event) => {
-        channel?.on("broadcast", { event }, async () => {
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookmarks",
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
           setLastSyncedAt(new Date().toISOString());
           try {
             await refresh();
           } catch (broadcastError) {
             setError((broadcastError as Error).message);
           }
-        });
-      });
+        }
+      );
 
       channel.subscribe((status) => {
         if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
