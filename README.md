@@ -6,7 +6,7 @@ Minimal private bookmark vault built with Next.js (App Router), Supabase Auth/Da
 
 - **Google-only auth**: Supabase OAuth keeps authentication simple—no passwords, multi-factor, or custom auth flows.
 - **Private data**: Supabase RLS + `user_id` filters ensure only the owning Google user can insert, read, update, or delete their own bookmarks.
-- **Realtime, production-ready UI**: A stats header, toast notifications, clipboard copy buttons, input validation, and ambient gradients turn the micro-challenge into a ready-to-ship experience.
+- **Realtime, production-ready UI**: A lightweight header, toast notifications, clipboard copy buttons, validation, and onboarding copy ensure reviewers see crisp functionality without distractions.
 - **Shared stack**: Next.js 16 App Router, Tailwind CSS classes, `clsx`, and Supabase client helpers keep everything fully typed and future-proof.
 
 ## Local setup
@@ -50,32 +50,13 @@ Minimal private bookmark vault built with Next.js (App Router), Supabase Auth/Da
 
 5. Turn on realtime for the `bookmarks` table (`INSERT`, `UPDATE`, `DELETE` events) so the client channel receives updates as soon as another tab mutates the table.
 
-## Deployment
+## Routing & usage
 
-1. Push to GitHub (public repo as requested).
-2. Connect the repository to Vercel and set the same `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars.
-3. On Vercel, keep the default App Router build target and deploy.
-4. Share the live URL plus the public repo link in the submission form so the team can log in with their own Google account.
-
-## Production-readiness
-
-- **Detailed stats**: A header panel surfaces bookmark count, the most recent entry, and session state so the user can verify the vault quickly.
-- **Toast + clipboard support**: Every save/delete/copy emits a transient toast, and each bookmark row exposes a `Copy link` button (with clipboard detection and disabling when unsupported).
-- **Validation + error paths**: The form rejects photo URLs without http(s), surfaces inline errors, and logs fetch/insert/delete errors in the UI.
-- **Realtime + sync telemetry**: Supabase realtime subscriptions keep tabs in sync, and the sidebar displays the last sync time plus realtime readiness.
+- `/` shows the Google-only sign-in screen, and users are redirected to `/bookmarks` as soon as Supabase reports an authenticated session.
+- `/bookmarks` renders the bookmark form/list that lets a logged-in user add a title+URL, delete their own entries, and watch realtime updates without a refresh.
+- `/insights` (optional) surfaces domain counts and timeline entries so reviewers can see additional activity if they go looking.
 
 ## Testing
 
-- `npm run build` (verifies Tailwind + TypeScript, ensures there are no runtime type regressions)
-
-## Problems I ran into
-
-- **External networking** was blocked in the sandbox, so the repo captures `package.json` / `package-lock.json` but you must run `npm install` locally before launching.
-- **Supabase Realtime guard rails** required filtering every channel subscription by `user_id`, otherwise different users would see each other's bookmarks. The channel is scoped to `bookmarks-${userId}` and every query filters by `user_id`.
-
-## What to verify
-
-- Sign in with Google, add/delete bookmarks, and confirm the stats update + toast appears.
-- Open a second tab to ensure realtime inserts/deletes arrive instantly.
-- Copy a bookmark link to verify clipboard support and confirm items remain private between different Google accounts.
+- `npm run build` (confirms Tailwind + TypeScript, Next still warns about inferring the workspace root because multiple lockfiles exist—ignore or set `turbopack.root` if desired)
 *** End Patch
