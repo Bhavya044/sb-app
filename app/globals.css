@@ -4,8 +4,23 @@
 
 :root {
   color-scheme: dark;
+  background-color: #010409;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  @apply font-sans bg-slate-950 text-slate-100 min-h-screen;
+  @apply font-sans text-slate-100 min-h-screen antialiased;
+  background-color: #010409;
+  background-image: radial-gradient(circle at 20% -10%, rgba(16, 185, 129, 0.35), transparent 40%),
+    radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.4), transparent 35%),
+    linear-gradient(180deg, #020617 0%, #040812 70%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background-color: rgba(16, 185, 129, 0.25);
+  color: #ecfccb;
 }
